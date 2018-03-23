@@ -21,19 +21,22 @@
 var camera, scene, renderer;
 var mesh;
 
+var arCamera, arScene;
+var arLayer = new THREE.Layers();
+
 init();
 animate();
 
 function init() {
 
-  camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 1000 );
-  camera.position.z = 400;
+  camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 100 );
+  camera.position.z = 4;
 
   scene = new THREE.Scene();
 
   var texture = new THREE.TextureLoader().load( 'textures/crate.gif' );
 
-  var geometry = new THREE.BoxBufferGeometry( 200, 200, 200 );
+  var geometry = new THREE.BoxBufferGeometry( 1,1,1 );
   var material = new THREE.MeshBasicMaterial( { map: texture } );
 
   mesh = new THREE.Mesh( geometry, material );
@@ -42,12 +45,31 @@ function init() {
   renderer = new THREE.WebGLRenderer();
   renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize( window.innerWidth, window.innerHeight );
+
+  renderer.autoClear = false;
+
   document.body.appendChild( renderer.domElement );
 
   //
 
   window.addEventListener( 'resize', onWindowResize, false );
 
+
+  setupAR();
+
+}
+
+function setupAR() {
+  arScene = new THREE.Scene();
+
+  var geo = new THREE.BoxBufferGeometry( 1,1,1 );
+  var mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  var block = new THREE.Mesh( geo, mat );
+
+  arScene.add( block );
+
+  arCamera = new THREE.PerspectiveCamera();
+  arCamera = camera.clone();
 }
 
 function onWindowResize() {
@@ -67,6 +89,8 @@ function animate() {
   mesh.rotation.y += 0.01;
 
   renderer.render( scene, camera );
+
+  renderer.render( arScene, arCamera );
 
 }
 
