@@ -15,61 +15,162 @@
 <body>
 
 <script src="js/three.min.js"></script>
+<script src="js/OrbitControls.js"></script>
 
 <script>
+'use strict';
 
 var camera, scene, renderer;
+var controls;
 var mesh;
+
+var cameraRig;
+
+var texture;
+
+var block;
+var group;
 
 var arCamera, arScene;
 var arLayer = new THREE.Layers();
+var LAYER_AR = 4;
+arLayer.enable(LAYER_AR);
+
+var showAR = true;
 
 init();
 animate();
 
 function init() {
 
-  camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 100 );
-  camera.position.z = 4;
-
   scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x505050);
 
-  var texture = new THREE.TextureLoader().load( 'textures/crate.gif' );
+  camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 500 );
 
-  var geometry = new THREE.BoxBufferGeometry( 1,1,1 );
-  var material = new THREE.MeshBasicMaterial( { map: texture } );
+  cameraRig = new THREE.Object3D();
+  cameraRig.position.z = 3;
+  cameraRig.position.y = 1;
 
-  mesh = new THREE.Mesh( geometry, material );
-  scene.add( mesh );
+  // cameraRig.lookAt( 0,0,0 );
 
-  renderer = new THREE.WebGLRenderer();
+  cameraRig.add( camera );
+
+  group = new THREE.Object3D();
+  scene.add( group );
+
+  scene.add( cameraRig );
+
+  setupLights();
+
+  setupWorld();
+
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
   renderer.setPixelRatio( window.devicePixelRatio );
   renderer.setSize( window.innerWidth, window.innerHeight );
 
   renderer.autoClear = false;
+  renderer.autoClearColor = false;
+  renderer.autoClearDepth = false;
+  //renderer.autoClearStencil = false;
 
   document.body.appendChild( renderer.domElement );
 
-  //
 
   window.addEventListener( 'resize', onWindowResize, false );
 
-
   setupAR();
 
+  document.addEventListener('click', function(ev){
+    showAR = !showAR;
+  });
+
+  //setupControls();
+
+}
+
+function setupLights() {
+  var directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+  scene.add( directionalLight );
+
+  var light = new THREE.AmbientLight( 0x080808 ); // soft white light
+  scene.add( light );
+
+  var lights = [];
+  lights[ 0 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+  lights[ 1 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+  lights[ 2 ] = new THREE.PointLight( 0xffffff, 1, 0 );
+
+  lights[ 0 ].position.set( 0, 200, 0 );
+  lights[ 1 ].position.set( 100, 200, 100 );
+  lights[ 2 ].position.set( - 100, - 200, - 100 );
+
+  scene.add( lights[ 0 ] );
+  scene.add( lights[ 1 ] );
+  scene.add( lights[ 2 ] );
+
+
+  directionalLight.layers.enable(LAYER_AR);
+  light.layers.enable(LAYER_AR);
+  lights[0].layers.enable(LAYER_AR);
+  lights[1].layers.enable(LAYER_AR);
+  lights[2].layers.enable(LAYER_AR);
+}
+
+function setupWorld() {
+  texture = new THREE.TextureLoader().load( 'textures/crate.gif' );
+
+  var geometry = new THREE.BoxBufferGeometry( 1,1,1 );
+  var material = new THREE.MeshStandardMaterial( { map: texture } );
+
+  mesh = new THREE.Mesh( geometry, material );
+  group.add( mesh );
+
+  texture = new THREE.TextureLoader().load( 'textures/crate.gif' );
+
+  var geometry = new THREE.PlaneGeometry( 3,3, 6,6 );
+  var material = new THREE.MeshBasicMaterial( { wireframe: true, color: 0xffffff } );
+
+  var grid = new THREE.Mesh( geometry, material );
+  grid.rotateOnAxis( new THREE.Vector3(1,0,0), Math.PI/2);
+  grid.position.y = -0.501;
+  group.add( grid );
+}
+
+function setupControls() {
+  controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+  controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+  controls.dampingFactor = 0.25;
+  controls.panningMode = THREE.HorizontalPanning; // default is THREE.ScreenSpacePanning
+  controls.minDistance = 0.1;
+  controls.maxDistance = 100;
+  controls.maxPolarAngle = Math.PI / 2;
+
+  //controls.update();
 }
 
 function setupAR() {
   arScene = new THREE.Scene();
 
-  var geo = new THREE.BoxBufferGeometry( 1,1,1 );
-  var mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  var block = new THREE.Mesh( geo, mat );
+  var geo = new THREE.BoxBufferGeometry( 0.1,0.1,0.1 );
+  //var mat = new THREE.MeshStandardMaterial( { map: texture } );
+  var mat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+  block = new THREE.Mesh( geo, mat );
 
-  arScene.add( block );
+  block.position.y = 0.55;
+
+  block.layers.set(LAYER_AR);
+
+  group.add( block );
 
   arCamera = new THREE.PerspectiveCamera();
   arCamera = camera.clone();
+  arCamera.layers.set(LAYER_AR);
+
+  cameraRig.add( arCamera );
 }
 
 function onWindowResize() {
@@ -81,16 +182,29 @@ function onWindowResize() {
 
 }
 
-function animate() {
+function animate(t) {
 
   requestAnimationFrame( animate );
 
-  mesh.rotation.x += 0.005;
-  mesh.rotation.y += 0.01;
+  update(t);
+  render(t);
+}
 
+function update(t) {
+  if (controls)
+    controls.update();
+
+  group.rotation.y += 0.01;
+}
+
+function render(t) {
   renderer.render( scene, camera );
 
-  renderer.render( arScene, arCamera );
+  if (showAR)
+    renderer.render( scene, arCamera );
+}
+
+function renderAR(t) {
 
 }
 
